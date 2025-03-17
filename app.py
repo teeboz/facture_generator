@@ -10,43 +10,42 @@ form_template = """
 <html>
 <head>
     <meta charset="UTF-8" />
-    <title>Générateur de Facture</title>
+    <title>Invoice Generator</title>
 </head>
 <body>
-    <h1>Générer une Facture</h1>
+    <h1>Generate an Invoice</h1>
     <form method="POST" action="/generate-invoice">
         <fieldset>
-            <legend>Informations de l'entreprise</legend>
-            Nom de l'entreprise: <input type="text" name="company_name" value="Entreprise Nadine"><br>
-            Adresse: <input type="text" name="company_address" value="Rue de l'Exemple, 123"><br>
-            Téléphone: <input type="text" name="company_phone" value="+33 1 23 45 67 89"><br>
-            Email: <input type="text" name="company_email" value="contact@nadine-entreprise.fr"><br>
-            NIF: <input type="text" name="company_nif" value="XYZ123456789"><br>
+            <legend>Company Information</legend>
+            Company Name: <input type="text" name="company_name" value="Nadine's Company"><br>
+            Address: <input type="text" name="company_address" value="123 Example Street"><br>
+            Phone: <input type="text" name="company_phone" value="+33 1 23 45 67 89"><br>
+            Email: <input type="text" name="company_email" value="contact@nadine-company.com"><br>
+            Tax ID: <input type="text" name="company_nif" value="XYZ123456789"><br>
         </fieldset>
         <br>
         <fieldset>
-            <legend>Informations du client</legend>
-            Nom du client: <input type="text" name="client_name" value="Nadine Imoma"><br>
-            Adresse du client: <input type="text" name="client_address" value="Av. Sierra Calderona 29A"><br>
-            NIF client: <input type="text" name="client_nif" value="Y9912567H"><br>
+            <legend>Client Information</legend>
+            Client Name: <input type="text" name="client_name" value="Nadine Imoma"><br>
+            Client Address: <input type="text" name="client_address" value="Av. Sierra Calderona 29A"><br>
+            Client Tax ID: <input type="text" name="client_nif" value="Y9912567H"><br>
         </fieldset>
         <br>
         <fieldset>
-            <legend>Informations de la facture</legend>
-            N° Facture: <input type="text" name="invoice_number" value="2025/05"><br>
-            Date (JJ/MM/AAAA): <input type="text" name="invoice_date" value="{{today}}"><br>
-            Mode de paiement: <input type="text" name="payment_method" value="Transférencia bancaria"><br>
+            <legend>Invoice Details</legend>
+            Invoice #: <input type="text" name="invoice_number" value="2025/05"><br>
+            Date (DD/MM/YYYY): <input type="text" name="invoice_date" value="{{today}}"><br>
+            Payment Method: <input type="text" name="payment_method" value="Bank Transfer"><br>
         </fieldset>
         <br>
         <fieldset>
-            <legend>Articles</legend>
-            (Pour la démo, on gère un seul article)<br>
-            Description: <input type="text" name="item_description" value="Installation électrique"><br>
-            Quantité: <input type="text" name="item_qty" value="1"><br>
-            Prix unitaire: <input type="text" name="item_price" value="465.00"><br>
+            <legend>Items</legend>
+            Description: <input type="text" name="item_description" value="Electrical Installation"><br>
+            Quantity: <input type="text" name="item_qty" value="1"><br>
+            Unit Price: <input type="text" name="item_price" value="465.00"><br>
         </fieldset>
         <br>
-        <input type="submit" value="Générer la Facture PDF">
+        <input type="submit" value="Generate Invoice PDF">
     </form>
 </body>
 </html>
@@ -66,16 +65,18 @@ def generate_invoice():
         "email": request.form.get("company_email", ""),
         "nif": request.form.get("company_nif", "")
     }
+
     client_info = {
         "name": request.form.get("client_name", ""),
         "address": request.form.get("client_address", ""),
         "nif": request.form.get("client_nif", "")
     }
+
     invoice_data = {
         "invoice_number": request.form.get("invoice_number", ""),
         "invoice_date": request.form.get("invoice_date", ""),
         "payment_method": request.form.get("payment_method", ""),
-        "additional_info": "Le paiement de cette facture se peut réaliser par virement."
+        "additional_info": "Payment for this invoice can be made by bank transfer."
     }
 
     try:
@@ -85,100 +86,101 @@ def generate_invoice():
         qty = 0
         price = 0
 
-    items = [
-        {
-            "description": request.form.get("item_description", ""),
-            "qty": qty,
-            "price": price
-        }
-    ]
+    items = [{
+        "description": request.form.get("item_description", ""),
+        "qty": qty,
+        "price": price
+    }]
 
     pdf_buffer = create_pdf(company_info, client_info, invoice_data, items)
-
-    return send_file(
-        pdf_buffer,
-        as_attachment=True,
-        download_name="facture.pdf",
-        mimetype="application/pdf"
-    )
+    return send_file(pdf_buffer, as_attachment=True, download_name="invoice.pdf", mimetype="application/pdf")
 
 def create_pdf(company_info, client_info, invoice_data, items):
     class InvoicePDF(FPDF):
         def header(self):
-            # Utilise DejaVu pour l'en-tête
-            self.set_font('DejaVu', '', 16)
-            self.cell(0, 10, "FACTURE", ln=True, align='C')
-            self.ln(5)
-            self.set_line_width(0.5)
-            self.set_draw_color(0, 0, 0)
-            self.line(10, 25, 200, 25)
+            # Load Unicode fonts for euro symbol
+            self.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
+            self.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf', uni=True)
+            self.set_fill_color(0, 51, 102)  # Dark blue
+            self.rect(0, 0, 210, 30, 'F')
+            self.set_text_color(255, 255, 255)
+            self.set_font('DejaVu', 'B', 16)
+            self.cell(0, 20, "INVOICE", ln=True, align='C')
             self.ln(10)
+            self.set_text_color(0, 0, 0)  # Reset text color
 
         def footer(self):
             self.set_y(-15)
-            # Utilise DejaVu pour le pied de page (8 points)
             self.set_font('DejaVu', '', 8)
-            page = f"Page {self.page_no()}/{{nb}}"
-            self.cell(0, 10, page, 0, 0, 'C')
+            self.cell(0, 10, f"Page {self.page_no()}/{{nb}}", 0, 0, 'C')
 
-    # Création de l'instance PDF
     pdf = InvoicePDF()
-
-    # IMPORTANT : Ajoutez les polices avant d'appeler add_page() car header() en a besoin.
-    pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
-    pdf.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
-
     pdf.alias_nb_pages()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("DejaVu", "", 12)
 
-    # -- Infos Société --
-    pdf.cell(100, 5, company_info["name"], ln=True)
-    pdf.multi_cell(100, 5, company_info["address"])
-    pdf.cell(100, 5, f"Téléphone : {company_info['phone']}", ln=True)
-    pdf.cell(100, 5, f"E-mail : {company_info['email']}", ln=True)
-    pdf.cell(100, 5, f"NIF : {company_info['nif']}", ln=True)
+    # -- Company Info --
+    pdf.set_font("DejaVu", "B", 12)
+    pdf.cell(80, 5, company_info["name"], ln=True)
+    pdf.set_font("DejaVu", "", 12)
+    pdf.multi_cell(80, 5, company_info["address"])
+    # Remove phone here (avoid duplication)
+    pdf.cell(80, 5, f"Email: {company_info['email']}", ln=True)
+    pdf.cell(80, 5, f"Tax ID: {company_info['nif']}", ln=True)
     pdf.ln(5)
 
-    # -- Infos Facture --
+    # -- Invoice Info --
     pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(40, 5, "Facture N° : ", ln=False)
+    pdf.cell(40, 5, "Invoice #: ", align="L")
     pdf.set_font("DejaVu", "", 12)
-    pdf.cell(40, 5, invoice_data["invoice_number"], ln=True)
+    pdf.cell(60, 5, invoice_data["invoice_number"], ln=False)
 
     pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(40, 5, "Date : ", ln=False)
+    pdf.cell(40, 5, "Date: ", align="L")
     pdf.set_font("DejaVu", "", 12)
     pdf.cell(40, 5, invoice_data["invoice_date"], ln=True)
 
+    # Phone
     pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(40, 5, "Mode de paiement : ", ln=False)
+    pdf.cell(40, 5, "Phone: ", align="L")
+    pdf.set_font("DejaVu", "", 12)
+    pdf.cell(60, 5, company_info["phone"], ln=False)
+
+    # Payment Method (with 2 spaces)
+    pdf.set_font("DejaVu", "B", 12)
+    pdf.cell(40, 5, "Payment Method:  ", align="L")  # 2 spaces
     pdf.set_font("DejaVu", "", 12)
     pdf.cell(40, 5, invoice_data["payment_method"], ln=True)
-    pdf.ln(5)
 
-    # -- Infos Client --
-    pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(40, 5, "Client : ", ln=True)
-    pdf.set_font("DejaVu", "", 12)
-    pdf.cell(100, 5, client_info["name"], ln=True)
-    pdf.multi_cell(100, 5, client_info["address"])
-    pdf.cell(100, 5, f"NIF : {client_info['nif']}", ln=True)
-    pdf.ln(5)
+    # Add 3 enters
+    pdf.ln(3)
+    pdf.ln(3)
+    pdf.ln(3)
 
-    # -- Tableau des articles --
-    pdf.set_font("DejaVu", "B", 12)
+    # Draw separation line
+    pdf.set_draw_color(0, 0, 0)
+    pdf.set_line_width(0.5)
+    current_y = pdf.get_y()
+    pdf.line(10, current_y, 200, current_y)
+
+    # Add 3 enters again
+    pdf.ln(6)
+    pdf.ln(6)
+    pdf.ln(6)
+
+    # -- Table Header --
     pdf.set_fill_color(200, 200, 200)
+    pdf.set_font("DejaVu", "B", 12)
     pdf.cell(80, 8, "Description", border=1, align='C', fill=True)
-    pdf.cell(30, 8, "Quantité", border=1, align='C', fill=True)
-    pdf.cell(40, 8, "Prix Unitaire", border=1, align='C', fill=True)
-    pdf.cell(40, 8, "Montant", border=1, align='C', fill=True)
+    pdf.cell(30, 8, "Qty", border=1, align='C', fill=True)
+    pdf.cell(40, 8, "Unit Price", border=1, align='C', fill=True)
+    pdf.cell(40, 8, "Amount", border=1, align='C', fill=True)
     pdf.ln(8)
 
+    # -- Items --
     pdf.set_font("DejaVu", "", 12)
     subtotal = 0.0
-    tva_rate = 0.21
+    vat_rate = 0.21  # 21% VAT
     for item in items:
         description = item["description"]
         qty = item["qty"]
@@ -192,19 +194,19 @@ def create_pdf(company_info, client_info, invoice_data, items):
         pdf.cell(40, 8, f"{line_total:.2f} €", border=1, align='R')
         pdf.ln(8)
 
-    tva_amount = subtotal * tva_rate
-    total = subtotal + tva_amount
+    # -- Totals --
+    vat_amount = subtotal * vat_rate
+    total = subtotal + vat_amount
 
     pdf.ln(5)
-    pdf.cell(150, 8, "Sous-total :", border=0, align='R')
-    pdf.cell(40, 8, f"{subtotal:.2f} €", border=0, align='R')
-    pdf.ln(5)
-    pdf.cell(150, 8, f"TVA ({int(tva_rate*100)}%) :", border=0, align='R')
-    pdf.cell(40, 8, f"{tva_amount:.2f} €", border=0, align='R')
+    pdf.cell(150, 8, "Subtotal:", align='R')
+    pdf.cell(40, 8, f"{subtotal:.2f} €", align='R', ln=True)
+    pdf.cell(150, 8, f"VAT ({int(vat_rate*100)}%):", align='R')
+    pdf.cell(40, 8, f"{vat_amount:.2f} €", align='R', ln=True)
     pdf.ln(5)
     pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(150, 8, "Total à payer :", border=0, align='R')
-    pdf.cell(40, 8, f"{total:.2f} €", border=0, align='R')
+    pdf.cell(150, 8, "Total Due:", align='R')
+    pdf.cell(40, 8, f"{total:.2f} €", align='R', ln=True)
     pdf.ln(10)
 
     pdf.set_font("DejaVu", "", 10)

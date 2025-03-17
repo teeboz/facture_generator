@@ -40,7 +40,6 @@ form_template = """
         <br>
         <fieldset>
             <legend>Items</legend>
-            (For the demo, we handle only one item)<br>
             Description: <input type="text" name="item_description" value="Electrical Installation"><br>
             Quantity: <input type="text" name="item_qty" value="1"><br>
             Unit Price: <input type="text" name="item_price" value="465.00"><br>
@@ -59,7 +58,6 @@ def index():
 
 @app.route('/generate-invoice', methods=['POST'])
 def generate_invoice():
-    # Collect company info
     company_info = {
         "name": request.form.get("company_name", ""),
         "address": request.form.get("company_address", ""),
@@ -67,157 +65,153 @@ def generate_invoice():
         "email": request.form.get("company_email", ""),
         "nif": request.form.get("company_nif", "")
     }
-    # Collect client info
+
     client_info = {
         "name": request.form.get("client_name", ""),
         "address": request.form.get("client_address", ""),
         "nif": request.form.get("client_nif", "")
     }
-    # Collect invoice details
+
     invoice_data = {
         "invoice_number": request.form.get("invoice_number", ""),
         "invoice_date": request.form.get("invoice_date", ""),
         "payment_method": request.form.get("payment_method", ""),
         "additional_info": "Payment for this invoice can be made by bank transfer."
     }
-    # Collect item info
+
     try:
         qty = float(request.form.get("item_qty", "0"))
         price = float(request.form.get("item_price", "0"))
     except ValueError:
         qty = 0
         price = 0
-    items = [
-        {
-            "description": request.form.get("item_description", ""),
-            "qty": qty,
-            "price": price
-        }
-    ]
+
+    items = [{
+        "description": request.form.get("item_description", ""),
+        "qty": qty,
+        "price": price
+    }]
+
     pdf_buffer = create_pdf(company_info, client_info, invoice_data, items)
-    return send_file(
-        pdf_buffer,
-        as_attachment=True,
-        download_name="invoice.pdf",
-        mimetype="application/pdf"
-    )
+    return send_file(pdf_buffer, as_attachment=True, download_name="invoice.pdf", mimetype="application/pdf")
 
 def create_pdf(company_info, client_info, invoice_data, items):
     class InvoicePDF(FPDF):
         def header(self):
-            # Draw a colored header background
-            self.set_fill_color(0, 70, 127)  # Professional blue
+            # Load Unicode fonts for euro symbol
+            self.add_font('DejaVu', '', 'DejaVuSans.ttf', uni=True)
+            self.add_font('DejaVu', 'B', 'DejaVuSans-Bold.ttf', uni=True)
+            self.set_fill_color(0, 51, 102)  # Dark blue
             self.rect(0, 0, 210, 30, 'F')
             self.set_text_color(255, 255, 255)
-            self.set_font('DejaVu', 'B', 24)
-            self.cell(0, 30, "INVOICE", ln=True, align='C')
-            self.set_text_color(0, 0, 0)
-            self.ln(5)
+            self.set_font('DejaVu', 'B', 16)
+            self.cell(0, 20, "INVOICE", ln=True, align='C')
+            self.ln(10)
+            self.set_text_color(0, 0, 0)  # Reset text color
+
         def footer(self):
             self.set_y(-15)
             self.set_font('DejaVu', '', 8)
             self.cell(0, 10, f"Page {self.page_no()}/{{nb}}", 0, 0, 'C')
-    
-    pdf = InvoicePDF('P', 'mm', 'A4')
-    # Load fonts (make sure the TTF files are in the same directory)
-    pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
-    pdf.add_font("DejaVu", "B", "DejaVuSans-Bold.ttf", uni=True)
+
+    pdf = InvoicePDF()
     pdf.alias_nb_pages()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("DejaVu", "", 12)
-    
-    # Company Info (top left)
-    pdf.set_xy(10, 40)
-    pdf.set_font("DejaVu", "B", 14)
-    pdf.cell(100, 6, company_info["name"], ln=True)
-    pdf.set_font("DejaVu", "", 12)
-    pdf.multi_cell(100, 5, company_info["address"])
-    pdf.cell(100, 5, f"Phone: {company_info['phone']}", ln=True)
-    pdf.cell(100, 5, f"Email: {company_info['email']}", ln=True)
-    pdf.cell(100, 5, f"Tax ID: {company_info['nif']}", ln=True)
-    
-    # Invoice Details (top right)
-    pdf.set_xy(120, 40)
+
+    # -- Company Info --
     pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(50, 6, "Invoice #:", ln=0)
+    pdf.cell(80, 5, company_info["name"], ln=True)
     pdf.set_font("DejaVu", "", 12)
-    pdf.cell(40, 6, invoice_data["invoice_number"], ln=True)
-    
-    pdf.set_xy(120, 48)
+    pdf.multi_cell(80, 5, company_info["address"])
+    # Remove phone here (avoid duplication)
+    pdf.cell(80, 5, f"Email: {company_info['email']}", ln=True)
+    pdf.cell(80, 5, f"Tax ID: {company_info['nif']}", ln=True)
+    pdf.ln(5)
+
+    # -- Invoice Info --
     pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(50, 6, "Date:", ln=0)
+    pdf.cell(40, 5, "Invoice #: ", align="L")
     pdf.set_font("DejaVu", "", 12)
-    pdf.cell(40, 6, invoice_data["invoice_date"], ln=True)
-    
-    pdf.set_xy(120, 56)
+    pdf.cell(60, 5, invoice_data["invoice_number"], ln=False)
+
     pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(50, 6, "Payment Method:", ln=0)
+    pdf.cell(40, 5, "Date: ", align="L")
     pdf.set_font("DejaVu", "", 12)
-    pdf.cell(40, 6, invoice_data["payment_method"], ln=True)
-    pdf.ln(10)
-    
-    # Separator line
+    pdf.cell(40, 5, invoice_data["invoice_date"], ln=True)
+
+    # Phone
+    pdf.set_font("DejaVu", "B", 12)
+    pdf.cell(40, 5, "Phone: ", align="L")
+    pdf.set_font("DejaVu", "", 12)
+    pdf.cell(60, 5, company_info["phone"], ln=False)
+
+    # Payment Method (with 2 spaces)
+    pdf.set_font("DejaVu", "B", 12)
+    pdf.cell(40, 5, "Payment Method:  ", align="L")  # 2 spaces
+    pdf.set_font("DejaVu", "", 12)
+    pdf.cell(40, 5, invoice_data["payment_method"], ln=True)
+
+    # Add 3 enters
+    pdf.ln(3)
+    pdf.ln(3)
+    pdf.ln(3)
+
+    # Draw separation line
+    pdf.set_draw_color(0, 0, 0)
     pdf.set_line_width(0.5)
-    pdf.line(10, 70, 200, 70)
-    pdf.ln(10)
-    
-    # Client Info
-    pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(100, 6, "Bill To:", ln=True)
-    pdf.set_font("DejaVu", "", 12)
-    pdf.cell(100, 5, client_info["name"], ln=True)
-    pdf.multi_cell(100, 5, client_info["address"])
-    pdf.cell(100, 5, f"Tax ID: {client_info['nif']}", ln=True)
-    pdf.ln(10)
-    
-    # Items Table Header
-    pdf.set_font("DejaVu", "B", 12)
+    current_y = pdf.get_y()
+    pdf.line(10, current_y, 200, current_y)
+
+    # Add 3 enters again
+    pdf.ln(6)
+    pdf.ln(6)
+    pdf.ln(6)
+
+    # -- Table Header --
     pdf.set_fill_color(200, 200, 200)
+    pdf.set_font("DejaVu", "B", 12)
     pdf.cell(80, 8, "Description", border=1, align='C', fill=True)
     pdf.cell(30, 8, "Qty", border=1, align='C', fill=True)
     pdf.cell(40, 8, "Unit Price", border=1, align='C', fill=True)
     pdf.cell(40, 8, "Amount", border=1, align='C', fill=True)
     pdf.ln(8)
-    
-    # Items List
+
+    # -- Items --
     pdf.set_font("DejaVu", "", 12)
     subtotal = 0.0
+    vat_rate = 0.21  # 21% VAT
     for item in items:
+        description = item["description"]
         qty = item["qty"]
         price = item["price"]
         line_total = qty * price
         subtotal += line_total
-        
-        pdf.cell(80, 8, item["description"], border=1)
+
+        pdf.cell(80, 8, description, border=1)
         pdf.cell(30, 8, f"{qty}", border=1, align='C')
         pdf.cell(40, 8, f"{price:.2f} €", border=1, align='R')
         pdf.cell(40, 8, f"{line_total:.2f} €", border=1, align='R')
         pdf.ln(8)
-    
-    # Totals
-    vat_rate = 0.21
+
+    # -- Totals --
     vat_amount = subtotal * vat_rate
     total = subtotal + vat_amount
-    
+
+    pdf.ln(5)
+    pdf.cell(150, 8, "Subtotal:", align='R')
+    pdf.cell(40, 8, f"{subtotal:.2f} €", align='R', ln=True)
+    pdf.cell(150, 8, f"VAT ({int(vat_rate*100)}%):", align='R')
+    pdf.cell(40, 8, f"{vat_amount:.2f} €", align='R', ln=True)
     pdf.ln(5)
     pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(150, 8, "Subtotal:", border=0, align='R')
-    pdf.cell(40, 8, f"{subtotal:.2f} €", border=0, align='R')
-    pdf.ln(8)
-    
-    pdf.cell(150, 8, f"VAT ({int(vat_rate*100)}%):", border=0, align='R')
-    pdf.cell(40, 8, f"{vat_amount:.2f} €", border=0, align='R')
-    pdf.ln(8)
-    
-    pdf.cell(150, 8, "Total Due:", border=0, align='R')
-    pdf.cell(40, 8, f"{total:.2f} €", border=0, align='R')
+    pdf.cell(150, 8, "Total Due:", align='R')
+    pdf.cell(40, 8, f"{total:.2f} €", align='R', ln=True)
     pdf.ln(10)
-    
-    # Additional Information
+
     pdf.set_font("DejaVu", "", 10)
     pdf.multi_cell(0, 5, invoice_data["additional_info"])
-    
+
     pdf_buffer = io.BytesIO()
     pdf.output(pdf_buffer)
     pdf_buffer.seek(0)
